@@ -14,6 +14,24 @@ class Board private constructor(private val cells: List<Cell>) {
         return Board(updated)
     }
 
+    fun canPlace(coord: Coord, value: Int): Boolean {
+        require(value in 1..9) { "value must be 1..9, was $value" }
+        val boxRow = (coord.row / 3) * 3
+        val boxCol = (coord.col / 3) * 3
+        for (i in 0..8) {
+            if (i != coord.col && cell(Coord(coord.row, i)).value == value) return false
+            if (i != coord.row && cell(Coord(i, coord.col)).value == value) return false
+        }
+        for (r in boxRow until boxRow + 3) {
+            for (c in boxCol until boxCol + 3) {
+                if ((r != coord.row || c != coord.col) &&
+                    cell(Coord(r, c)).value == value
+                ) return false
+            }
+        }
+        return true
+    }
+
     companion object {
         const val SIZE = 9
 
