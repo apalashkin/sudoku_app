@@ -4,33 +4,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.apalashkin.sudoku.domain.model.Board
-import com.apalashkin.sudoku.domain.model.Coord
-
-private val DEMO_PUZZLE: Array<IntArray> = arrayOf(
-    intArrayOf(5, 3, 0, 0, 7, 0, 0, 0, 0),
-    intArrayOf(6, 0, 0, 1, 9, 5, 0, 0, 0),
-    intArrayOf(0, 9, 8, 0, 0, 0, 0, 6, 0),
-    intArrayOf(8, 0, 0, 0, 6, 0, 0, 0, 3),
-    intArrayOf(4, 0, 0, 8, 0, 3, 0, 0, 1),
-    intArrayOf(7, 0, 0, 0, 2, 0, 0, 0, 6),
-    intArrayOf(0, 6, 0, 0, 0, 0, 2, 8, 0),
-    intArrayOf(0, 0, 0, 4, 1, 9, 0, 0, 5),
-    intArrayOf(0, 0, 0, 0, 8, 0, 0, 7, 9),
-)
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun GameScreen(modifier: Modifier = Modifier) {
-    val board = remember { Board.fromGrid(DEMO_PUZZLE) }
-    var selected by remember { mutableStateOf<Coord?>(null) }
+fun GameScreen(
+    modifier: Modifier = Modifier,
+    viewModel: GameViewModel = viewModel(),
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -39,11 +27,17 @@ fun GameScreen(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        if (state.isComplete) {
+            Text(text = "🎉 Solved!")
+        }
         GridView(
-            board = board,
-            selected = selected,
-            onCellTap = { coord -> selected = coord },
+            board = state.puzzle,
+            selected = state.selected,
+            onCellTap = viewModel::selectCell,
         )
-        NumberPad(onNumberTap = { /* Phase 3 */ }, onErase = { /* Phase 3 */ })
+        NumberPad(
+            onNumberTap = viewModel::placeDigit,
+            onErase = viewModel::erase,
+        )
     }
 }

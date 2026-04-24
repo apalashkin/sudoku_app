@@ -1,6 +1,6 @@
 # Sudoku Android App — Plan
 
-**Current stage:** Phase 2 complete. Next: Phase 3 — playable game.
+**Current stage:** Phase 3 complete. Next: Phase 4 — notes, undo, highlighting.
 **Last updated:** 2026-04-24
 
 ## Scope (v1)
@@ -38,7 +38,7 @@ di/       Hilt modules
 - [x] **Phase 0 — Skeleton** (½ day): Android Studio "Empty Activity (Compose)" project, add Hilt/Room/serialization deps, NavHost w/ placeholder, package skeleton, `.gitignore`, first commit.
 - [x] **Phase 1 — Static grid renders** (1d): `Board`/`Cell` model, `GridView` composable (9×9, thick borders every 3), hard-coded puzzle, cell-tap selection, non-functional `NumberPad`.
 - [x] **Phase 2 — Generator + solver** (2-3d): backtracking `Solver` returning 0/1/2+ solutions; `PuzzleGenerator` via dig-with-uniqueness-check; difficulty bands Easy 40-45 clues, Medium 32-36, Hard 28-31, Expert 24-27; unit + property-based tests.
-- [ ] **Phase 3 — Playable game** (2d): `GameViewModel` + `StateFlow<GameUiState>`, wire NumberPad, enforce given cells, win detection, "game won" dialog.
+- [x] **Phase 3 — Playable game** (2d): `GameViewModel` + `StateFlow<GameUiState>`, wire NumberPad, enforce given cells, win detection, "game won" dialog.
 - [ ] **Phase 4 — Notes, undo, highlighting** (2d): notes mode toggle, auto-remove notes setting, snapshot-based undo stack, peer-conflict detection, row/col/box + same-digit highlight.
 - [ ] **Phase 5 — Persistence + resume** (1d): Room DB (`games`, `settings` tables), debounced save on state change, "Resume" entry on home screen.
 - [ ] **Phase 6 — Timer, stats, settings** (1-2d): `Flow<Duration>` timer paused via Lifecycle, stats screen (completed games + best times), settings screen, Material 3 theming.
