@@ -14,6 +14,9 @@ class Board private constructor(private val cells: List<Cell>) {
         return Board(updated)
     }
 
+    override fun equals(other: Any?): Boolean = other is Board && cells == other.cells
+    override fun hashCode(): Int = cells.hashCode()
+
     fun canPlace(coord: Coord, value: Int): Boolean {
         require(value in 1..9) { "value must be 1..9, was $value" }
         val boxRow = (coord.row / 3) * 3

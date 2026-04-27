@@ -136,6 +136,302 @@ class GameUiStateTest {
         assertEquals(state.puzzle.cell(coord).value, after.puzzle.cell(coord).value)
     }
 
+    @Test
+    fun `mistakes is empty on a clean board`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        assertTrue(state.mistakes().isEmpty())
+    }
+
+    @Test
+    fun `mistakes flags both cells of a row conflict`() {
+        val board = Board.empty()
+            .withCell(Coord(0, 0), Cell.filled(5))
+            .withCell(Coord(0, 5), Cell.filled(5))
+        val state = GameUiState(puzzle = board, solution = Board.empty())
+        val m = state.mistakes()
+        assertTrue(Coord(0, 0) in m)
+        assertTrue(Coord(0, 5) in m)
+    }
+
+    @Test
+    fun `mistakes flags column conflicts`() {
+        val board = Board.empty()
+            .withCell(Coord(0, 3), Cell.filled(7))
+            .withCell(Coord(5, 3), Cell.filled(7))
+        val state = GameUiState(puzzle = board, solution = Board.empty())
+        val m = state.mistakes()
+        assertTrue(Coord(0, 3) in m)
+        assertTrue(Coord(5, 3) in m)
+    }
+
+    @Test
+    fun `mistakes flags 3x3 box conflicts`() {
+        val board = Board.empty()
+            .withCell(Coord(0, 0), Cell.filled(2))
+            .withCell(Coord(2, 2), Cell.filled(2))
+        val state = GameUiState(puzzle = board, solution = Board.empty())
+        val m = state.mistakes()
+        assertTrue(Coord(0, 0) in m)
+        assertTrue(Coord(2, 2) in m)
+    }
+
+    @Test
+    fun `mistakes ignores empty cells`() {
+        val board = Board.empty().withCell(Coord(0, 0), Cell.filled(5))
+        val state = GameUiState(puzzle = board, solution = Board.empty())
+        assertTrue(state.mistakes().isEmpty())
+    }
+
+    @Test
+    fun `sameDigitCells is empty when nothing is selected`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        assertTrue(state.sameDigitCells().isEmpty())
+    }
+
+    @Test
+    fun `sameDigitCells is empty when the selected cell has no value`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val empty = firstEmptyCoord(state.puzzle)
+        assertTrue(state.selectCell(empty).sameDigitCells().isEmpty())
+    }
+
+    @Test
+    fun `sameDigitCells returns every coord with the same value`() {
+        val board = Board.empty()
+            .withCell(Coord(0, 0), Cell.filled(7))
+            .withCell(Coord(3, 3), Cell.filled(7))
+            .withCell(Coord(8, 8), Cell.filled(7))
+            .withCell(Coord(1, 1), Cell.filled(2))
+        val state = GameUiState(puzzle = board, solution = Board.empty())
+            .selectCell(Coord(0, 0))
+        val same = state.sameDigitCells()
+        assertEquals(setOf(Coord(0, 0), Coord(3, 3), Coord(8, 8)), same)
+    }
+
+    @Test
+    fun `initial state has empty undo history`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        assertTrue(state.history.isEmpty())
+        assertFalse(state.canUndo)
+    }
+
+    @Test
+    fun `placeDigit pushes the previous board to history`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val coord = firstEmptyCoord(state.puzzle)
+        val after = state.selectCell(coord).placeDigit(7)
+        assertEquals(1, after.history.size)
+        assertTrue(after.canUndo)
+    }
+
+    @Test
+    fun `undo restores the puzzle from the most recent snapshot`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val coord = firstEmptyCoord(state.puzzle)
+        val after = state.selectCell(coord).placeDigit(7).undo()
+        assertNull(after.puzzle.cell(coord).value)
+        assertEquals(0, after.history.size)
+    }
+
+    @Test
+    fun `undo with empty history is a no-op`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        assertEquals(state, state.undo())
+    }
+
+    @Test
+    fun `erase pushes history when it actually clears a cell`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val coord = firstEmptyCoord(state.puzzle)
+        val filled = state.selectCell(coord).placeDigit(7)
+        val erased = filled.erase()
+        assertEquals(2, erased.history.size)
+        val undone = erased.undo()
+        assertEquals(7, undone.puzzle.cell(coord).value)
+    }
+
+    @Test
+    fun `no-op placeDigit on a given cell does not push history`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val givenCoord = firstGivenCoord(state.puzzle)
+        val after = state.selectCell(givenCoord).placeDigit(3)
+        assertEquals(0, after.history.size)
+    }
+
+    @Test
+    fun `multiple undos walk back step by step`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val coord1 = firstEmptyCoord(state.puzzle)
+        val s1 = state.selectCell(coord1).placeDigit(3)
+        val coord2 = firstEmptyCoord(s1.puzzle)
+        val s2 = s1.selectCell(coord2).placeDigit(5)
+
+        val u1 = s2.undo()
+        assertEquals(3, u1.puzzle.cell(coord1).value)
+        assertNull(u1.puzzle.cell(coord2).value)
+
+        val u2 = u1.undo()
+        assertNull(u2.puzzle.cell(coord1).value)
+    }
+
+    @Test
+    fun `undo restores the auto-removed peer notes`() {
+        val board = Board.empty()
+            .withCell(Coord(0, 5), Cell.empty().copy(notes = setOf(7)))
+        val state = GameUiState(
+            puzzle = board,
+            solution = Board.empty(),
+        )
+        val after = state.selectCell(Coord(0, 0)).placeDigit(7).undo()
+        assertTrue(7 in after.puzzle.cell(Coord(0, 5)).notes)
+    }
+
+    @Test
+    fun `undo unsets isComplete after undoing the winning move`() {
+        val puzzle = seededPuzzle()
+        val almostSolved = buildAlmostSolvedState(puzzle, leaveEmpty = 1)
+        val coord = firstEmptyCoord(almostSolved.puzzle)
+        val correct = puzzle.solution.cell(coord).value!!
+        val solved = almostSolved.selectCell(coord).placeDigit(correct)
+        assertTrue(solved.isComplete)
+        val undone = solved.undo()
+        assertFalse(undone.isComplete)
+    }
+
+    @Test
+    fun `placing a digit removes that digit from notes of row peers`() {
+        val state = stateWithNotedPeers(
+            notedCoord = Coord(0, 5),
+            placeAt = Coord(0, 0),
+            digit = 7,
+        )
+        val after = state.toggleNoteMode().toggleNoteMode() // ensure normal mode
+            .selectCell(Coord(0, 0)).placeDigit(7)
+        assertFalse(7 in after.puzzle.cell(Coord(0, 5)).notes)
+    }
+
+    @Test
+    fun `placing a digit removes that digit from notes of column peers`() {
+        val state = stateWithNotedPeers(
+            notedCoord = Coord(5, 0),
+            placeAt = Coord(0, 0),
+            digit = 7,
+        )
+        val after = state.selectCell(Coord(0, 0)).placeDigit(7)
+        assertFalse(7 in after.puzzle.cell(Coord(5, 0)).notes)
+    }
+
+    @Test
+    fun `placing a digit removes that digit from notes of box peers`() {
+        val state = stateWithNotedPeers(
+            notedCoord = Coord(1, 1),
+            placeAt = Coord(0, 0),
+            digit = 7,
+        )
+        val after = state.selectCell(Coord(0, 0)).placeDigit(7)
+        assertFalse(7 in after.puzzle.cell(Coord(1, 1)).notes)
+    }
+
+    @Test
+    fun `placing a digit leaves notes in non-peer cells untouched`() {
+        val state = stateWithNotedPeers(
+            notedCoord = Coord(8, 8),
+            placeAt = Coord(0, 0),
+            digit = 7,
+        )
+        val after = state.selectCell(Coord(0, 0)).placeDigit(7)
+        assertTrue(7 in after.puzzle.cell(Coord(8, 8)).notes)
+    }
+
+    @Test
+    fun `placing a digit leaves other digits in peer notes untouched`() {
+        val state = stateWithNotedPeers(
+            notedCoord = Coord(0, 5),
+            placeAt = Coord(0, 0),
+            digit = 7,
+            extraNotes = setOf(2, 4),
+        )
+        val after = state.selectCell(Coord(0, 0)).placeDigit(7)
+        val notes = after.puzzle.cell(Coord(0, 5)).notes
+        assertTrue(2 in notes)
+        assertTrue(4 in notes)
+    }
+
+    private fun stateWithNotedPeers(
+        notedCoord: Coord,
+        placeAt: Coord,
+        digit: Int,
+        extraNotes: Set<Int> = emptySet(),
+    ): GameUiState {
+        var board = Board.empty()
+        board = board.withCell(notedCoord, Cell.empty().copy(notes = setOf(digit) + extraNotes))
+        return GameUiState(
+            puzzle = board,
+            solution = Board.empty(),
+            selected = null,
+            isComplete = false,
+        )
+    }
+
+    @Test
+    fun `noteMode is off initially`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        assertFalse(state.noteMode)
+    }
+
+    @Test
+    fun `toggleNoteMode flips noteMode`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        assertTrue(state.toggleNoteMode().noteMode)
+        assertFalse(state.toggleNoteMode().toggleNoteMode().noteMode)
+    }
+
+    @Test
+    fun `placeDigit in noteMode adds the digit to notes`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val coord = firstEmptyCoord(state.puzzle)
+        val after = state.toggleNoteMode().selectCell(coord).placeDigit(3).placeDigit(7)
+        assertEquals(setOf(3, 7), after.puzzle.cell(coord).notes)
+        assertNull(after.puzzle.cell(coord).value)
+    }
+
+    @Test
+    fun `placeDigit in noteMode toggles the digit out if already noted`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val coord = firstEmptyCoord(state.puzzle)
+        val after = state.toggleNoteMode().selectCell(coord)
+            .placeDigit(3).placeDigit(7).placeDigit(3)
+        assertEquals(setOf(7), after.puzzle.cell(coord).notes)
+    }
+
+    @Test
+    fun `placeDigit in noteMode is a no-op on a given cell`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val coord = firstGivenCoord(state.puzzle)
+        val originalCell = state.puzzle.cell(coord)
+        val after = state.toggleNoteMode().selectCell(coord).placeDigit(5)
+        assertEquals(originalCell, after.puzzle.cell(coord))
+    }
+
+    @Test
+    fun `placeDigit in noteMode is a no-op on a cell that already has a value`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val coord = firstEmptyCoord(state.puzzle)
+        val before = state.selectCell(coord).placeDigit(5)
+        val after = before.toggleNoteMode().placeDigit(7)
+        assertEquals(before.puzzle.cell(coord), after.puzzle.cell(coord))
+    }
+
+    @Test
+    fun `erase in noteMode clears all notes`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val coord = firstEmptyCoord(state.puzzle)
+        val withNotes = state.toggleNoteMode().selectCell(coord)
+            .placeDigit(2).placeDigit(4).placeDigit(8)
+        val after = withNotes.erase()
+        assertTrue(after.puzzle.cell(coord).notes.isEmpty())
+    }
+
     private fun firstGivenCoord(board: Board): Coord {
         for (r in 0..8) for (c in 0..8) {
             if (board.cell(Coord(r, c)).isGiven) return Coord(r, c)

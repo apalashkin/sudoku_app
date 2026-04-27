@@ -30,6 +30,14 @@ class GameViewModel(
         _state.value = _state.value.erase()
     }
 
+    fun toggleNoteMode() {
+        _state.value = _state.value.toggleNoteMode()
+    }
+
+    fun undo() {
+        _state.value = _state.value.undo()
+    }
+
     fun newGame(difficulty: Difficulty) {
         _state.value = GameUiState.fromPuzzle(generator.generate(difficulty))
     }

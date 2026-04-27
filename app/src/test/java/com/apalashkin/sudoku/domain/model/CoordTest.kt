@@ -42,6 +42,44 @@ class CoordTest {
     }
 
     @Test
+    fun `peers contains exactly 20 cells`() {
+        assertEquals(20, Coord(4, 4).peers().size)
+        assertEquals(20, Coord(0, 0).peers().size)
+        assertEquals(20, Coord(8, 8).peers().size)
+    }
+
+    @Test
+    fun `peers do not include self`() {
+        val coord = Coord(3, 5)
+        org.junit.Assert.assertFalse(coord in coord.peers())
+    }
+
+    @Test
+    fun `peers include every other cell in the same row`() {
+        val peers = Coord(2, 4).peers()
+        for (c in 0..8) if (c != 4) {
+            org.junit.Assert.assertTrue("missing (2,$c)", Coord(2, c) in peers)
+        }
+    }
+
+    @Test
+    fun `peers include every other cell in the same column`() {
+        val peers = Coord(2, 4).peers()
+        for (r in 0..8) if (r != 2) {
+            org.junit.Assert.assertTrue("missing ($r,4)", Coord(r, 4) in peers)
+        }
+    }
+
+    @Test
+    fun `peers include the four extra cells in the same box`() {
+        val peers = Coord(0, 0).peers()
+        org.junit.Assert.assertTrue(Coord(1, 1) in peers)
+        org.junit.Assert.assertTrue(Coord(1, 2) in peers)
+        org.junit.Assert.assertTrue(Coord(2, 1) in peers)
+        org.junit.Assert.assertTrue(Coord(2, 2) in peers)
+    }
+
+    @Test
     fun `coord identifies its 3x3 box`() {
         assertEquals(0, Coord(0, 0).box)
         assertEquals(0, Coord(2, 2).box)
