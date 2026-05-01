@@ -1,5 +1,6 @@
 package com.apalashkin.sudoku.ui.game
 
+import com.apalashkin.sudoku.domain.generator.Difficulty
 import com.apalashkin.sudoku.domain.generator.Puzzle
 import com.apalashkin.sudoku.domain.model.Board
 import com.apalashkin.sudoku.domain.model.Cell
@@ -8,6 +9,7 @@ import com.apalashkin.sudoku.domain.model.Coord
 data class GameUiState(
     val puzzle: Board,
     val solution: Board,
+    val difficulty: Difficulty = Difficulty.EASY,
     val selected: Coord? = null,
     val noteMode: Boolean = false,
     val isComplete: Boolean = false,
@@ -114,6 +116,7 @@ data class GameUiState(
         fun fromPuzzle(puzzle: Puzzle): GameUiState = GameUiState(
             puzzle = puzzle.puzzle,
             solution = puzzle.solution,
+            difficulty = puzzle.difficulty,
         )
     }
 }

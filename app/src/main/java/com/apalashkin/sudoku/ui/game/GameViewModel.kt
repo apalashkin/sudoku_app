@@ -1,44 +1,62 @@
 package com.apalashkin.sudoku.ui.game
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
-import com.apalashkin.sudoku.domain.generator.Difficulty
-import com.apalashkin.sudoku.domain.generator.PuzzleGenerator
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import com.apalashkin.sudoku.data.db.AppDatabase
+import com.apalashkin.sudoku.data.repository.GameRepository
 import com.apalashkin.sudoku.domain.model.Coord
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class GameViewModel(
-    private val generator: PuzzleGenerator = PuzzleGenerator(),
-    initialDifficulty: Difficulty = Difficulty.EASY,
+    private val repository: GameRepository,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(
-        GameUiState.fromPuzzle(generator.generate(initialDifficulty))
-    )
-    val state: StateFlow<GameUiState> = _state.asStateFlow()
+    private val _state = MutableStateFlow<GameUiState?>(null)
+    val state: StateFlow<GameUiState?> = _state.asStateFlow()
 
-    fun selectCell(coord: Coord) {
-        _state.value = _state.value.selectCell(coord)
+    private var currentGameId: Long? = null
+
+    init {
+        viewModelScope.launch {
+            val active = repository.observeActiveGame().first()
+            if (active != null) {
+                currentGameId = active.id
+                _state.value = active.state
+            }
+        }
     }
 
-    fun placeDigit(digit: Int) {
-        _state.value = _state.value.placeDigit(digit)
+    fun selectCell(coord: Coord) = mutate { it.selectCell(coord) }
+    fun placeDigit(digit: Int) = mutate { it.placeDigit(digit) }
+    fun erase() = mutate { it.erase() }
+    fun toggleNoteMode() = mutate { it.toggleNoteMode() }
+    fun undo() = mutate { it.undo() }
+
+    private fun mutate(transform: (GameUiState) -> GameUiState) {
+        val current = _state.value ?: return
+        val updated = transform(current)
+        if (updated === current) return
+        _state.value = updated
+        val id = currentGameId ?: return
+        viewModelScope.launch { repository.saveState(id, updated) }
     }
 
-    fun erase() {
-        _state.value = _state.value.erase()
-    }
-
-    fun toggleNoteMode() {
-        _state.value = _state.value.toggleNoteMode()
-    }
-
-    fun undo() {
-        _state.value = _state.value.undo()
-    }
-
-    fun newGame(difficulty: Difficulty) {
-        _state.value = GameUiState.fromPuzzle(generator.generate(difficulty))
+    companion object {
+        val Factory: ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                val app = this[APPLICATION_KEY] as Application
+                val db = AppDatabase.get(app)
+                GameViewModel(GameRepository(db.gameDao()))
+            }
+        }
     }
 }
