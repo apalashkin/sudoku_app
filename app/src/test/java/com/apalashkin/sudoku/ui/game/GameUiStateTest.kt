@@ -183,20 +183,167 @@ class GameUiStateTest {
     }
 
     @Test
-    fun `sameDigitCells is empty when nothing is selected`() {
+    fun `selectedDigit is null initially`() {
         val state = GameUiState.fromPuzzle(seededPuzzle())
-        assertTrue(state.sameDigitCells().isEmpty())
+        assertNull(state.selectedDigit)
     }
 
     @Test
-    fun `sameDigitCells is empty when the selected cell has no value`() {
+    fun `selectDigit with no cell selected just locks the digit`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val before = state.puzzle
+        val after = state.selectDigit(5)
+        assertEquals(5, after.selectedDigit)
+        assertEquals(before, after.puzzle)
+    }
+
+    @Test
+    fun `selectDigit with same digit toggles off`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val after = state.selectDigit(5).selectDigit(5)
+        assertNull(after.selectedDigit)
+    }
+
+    @Test
+    fun `selectDigit with cell selected places and locks`() {
         val state = GameUiState.fromPuzzle(seededPuzzle())
         val empty = firstEmptyCoord(state.puzzle)
-        assertTrue(state.selectCell(empty).sameDigitCells().isEmpty())
+        val after = state.selectCell(empty).selectDigit(7)
+        assertEquals(7, after.puzzle.cell(empty).value)
+        assertEquals(7, after.selectedDigit)
     }
 
     @Test
-    fun `sameDigitCells returns every coord with the same value`() {
+    fun `selectDigit switching to a different digit only relocks without placing`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val empty = firstEmptyCoord(state.puzzle)
+        val after = state.selectDigit(3).selectCell(empty).selectDigit(8)
+        assertEquals(3, after.puzzle.cell(empty).value)
+        assertEquals(8, after.selectedDigit)
+    }
+
+    @Test
+    fun `selectCell with locked digit places the digit at the new cell`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val empty = firstEmptyCoord(state.puzzle)
+        val after = state.selectDigit(4).selectCell(empty)
+        assertEquals(4, after.puzzle.cell(empty).value)
+        assertEquals(4, after.selectedDigit)
+        assertEquals(empty, after.selected)
+    }
+
+    @Test
+    fun `selectCell with locked digit and noteMode places a note`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val empty = firstEmptyCoord(state.puzzle)
+        val after = state.toggleNoteMode().selectDigit(2).selectCell(empty)
+        assertTrue(2 in after.puzzle.cell(empty).notes)
+        assertNull(after.puzzle.cell(empty).value)
+        assertEquals(2, after.selectedDigit)
+    }
+
+    @Test
+    fun `selectCell with locked digit on a given cell keeps digit locked and places nothing`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val given = firstGivenCoord(state.puzzle)
+        val originalValue = state.puzzle.cell(given).value
+        val after = state.selectDigit(4).selectCell(given)
+        assertEquals(originalValue, after.puzzle.cell(given).value)
+        assertEquals(4, after.selectedDigit)
+        assertEquals(given, after.selected)
+    }
+
+    @Test
+    fun `digitHighlights uses selectedDigit when set`() {
+        val board = Board.empty()
+            .withCell(Coord(0, 0), Cell.filled(7))
+            .withCell(Coord(3, 3), Cell.filled(7))
+            .withCell(Coord(1, 1), Cell.filled(5))
+        val state = GameUiState(puzzle = board, solution = Board.empty())
+            .selectCell(Coord(1, 1))
+            .selectDigit(7)
+        // 5 was placed at (1,1) by selectDigit since it had a selected cell? No -
+        // selectDigit(7) places 7 at the selected cell (1,1), overwriting 5.
+        // The point: digitHighlights should use selectedDigit (7), not (1,1)'s value.
+        val highlights = state.digitHighlights()
+        assertTrue(Coord(0, 0) in highlights)
+        assertTrue(Coord(3, 3) in highlights)
+    }
+
+    @Test
+    fun `digitHighlights includes cells with selectedDigit in notes`() {
+        val board = Board.empty()
+            .withCell(Coord(0, 0), Cell.empty().copy(notes = setOf(3, 7)))
+            .withCell(Coord(5, 5), Cell.empty().copy(notes = setOf(7, 9)))
+            .withCell(Coord(2, 2), Cell.empty().copy(notes = setOf(2, 4)))
+        val state = GameUiState(puzzle = board, solution = Board.empty()).selectDigit(7)
+        val highlights = state.digitHighlights()
+        assertTrue(Coord(0, 0) in highlights)
+        assertTrue(Coord(5, 5) in highlights)
+        assertTrue(Coord(2, 2) !in highlights)
+    }
+
+    @Test
+    fun `placing the 9th of a locked digit auto-unlocks the digit`() {
+        var board = Board.empty()
+        val placements = listOf(
+            Coord(0, 0), Coord(1, 3), Coord(2, 6),
+            Coord(3, 1), Coord(4, 4), Coord(5, 7),
+            Coord(6, 2), Coord(7, 5),
+        )
+        for (coord in placements) board = board.withCell(coord, Cell.filled(7))
+        val state = GameUiState(puzzle = board, solution = Board.empty())
+            .selectDigit(7)
+        val ninth = Coord(8, 8)
+        val after = state.selectCell(ninth)
+        assertEquals(7, after.puzzle.cell(ninth).value)
+        assertNull(after.selectedDigit)
+    }
+
+    @Test
+    fun `completedDigits is empty on a fresh puzzle`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        assertTrue(state.completedDigits().isEmpty())
+    }
+
+    @Test
+    fun `completedDigits includes a digit when 9 are placed`() {
+        var board = Board.empty()
+        val placements = listOf(
+            Coord(0, 0), Coord(1, 3), Coord(2, 6),
+            Coord(3, 1), Coord(4, 4), Coord(5, 7),
+            Coord(6, 2), Coord(7, 5), Coord(8, 8),
+        )
+        for (coord in placements) board = board.withCell(coord, Cell.filled(7))
+        val state = GameUiState(puzzle = board, solution = Board.empty())
+        assertTrue(7 in state.completedDigits())
+    }
+
+    @Test
+    fun `completedDigits excludes a digit involved in a peer conflict`() {
+        var board = Board.empty()
+        for (col in 0..8) {
+            board = board.withCell(Coord(0, col), Cell.filled(5))
+        }
+        val state = GameUiState(puzzle = board, solution = Board.empty())
+        assertTrue(5 !in state.completedDigits())
+    }
+
+    @Test
+    fun `digitHighlights is empty when nothing is selected`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        assertTrue(state.digitHighlights().isEmpty())
+    }
+
+    @Test
+    fun `digitHighlights is empty when the selected cell has no value`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val empty = firstEmptyCoord(state.puzzle)
+        assertTrue(state.selectCell(empty).digitHighlights().isEmpty())
+    }
+
+    @Test
+    fun `digitHighlights returns every coord with the same value`() {
         val board = Board.empty()
             .withCell(Coord(0, 0), Cell.filled(7))
             .withCell(Coord(3, 3), Cell.filled(7))
@@ -204,7 +351,7 @@ class GameUiStateTest {
             .withCell(Coord(1, 1), Cell.filled(2))
         val state = GameUiState(puzzle = board, solution = Board.empty())
             .selectCell(Coord(0, 0))
-        val same = state.sameDigitCells()
+        val same = state.digitHighlights()
         assertEquals(setOf(Coord(0, 0), Coord(3, 3), Coord(8, 8)), same)
     }
 

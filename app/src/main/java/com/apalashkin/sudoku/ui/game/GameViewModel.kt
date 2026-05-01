@@ -36,7 +36,7 @@ class GameViewModel(
     }
 
     fun selectCell(coord: Coord) = mutate { it.selectCell(coord) }
-    fun placeDigit(digit: Int) = mutate { it.placeDigit(digit) }
+    fun selectDigit(digit: Int) = mutate { it.selectDigit(digit) }
     fun erase() = mutate { it.erase() }
     fun toggleNoteMode() = mutate { it.toggleNoteMode() }
     fun undo() = mutate { it.undo() }

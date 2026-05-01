@@ -35,7 +35,7 @@ fun GridView(
     board: Board,
     selected: Coord?,
     peers: Set<Coord>,
-    sameDigit: Set<Coord>,
+    activeDigit: Int?,
     mistakes: Set<Coord>,
     onCellTap: (Coord) -> Unit,
     modifier: Modifier = Modifier,
@@ -49,6 +49,8 @@ fun GridView(
     val givenColor = MaterialTheme.colorScheme.onSurface
     val userColor = MaterialTheme.colorScheme.primary
     val noteColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val noteHighlightBg = Color(0xFF1A237E)
+    val noteHighlightFg = Color.White
 
     Column(
         modifier = modifier
@@ -64,7 +66,8 @@ fun GridView(
                     val cell = board.cell(coord)
                     val isSelected = selected == coord
                     val isMistake = coord in mistakes
-                    val isSameDigit = !isSelected && coord in sameDigit
+                    val isSameDigit = !isSelected &&
+                        activeDigit != null && cell.value == activeDigit
                     val isPeer = !isSelected && !isSameDigit && coord in peers
 
                     val bg = when {
@@ -123,10 +126,13 @@ fun GridView(
                             CellContent(
                                 cell = cell,
                                 isMistake = isMistake,
+                                activeDigit = activeDigit,
                                 mistakeColor = mistakeColor,
                                 givenColor = givenColor,
                                 userColor = userColor,
                                 noteColor = noteColor,
+                                noteHighlightBg = noteHighlightBg,
+                                noteHighlightFg = noteHighlightFg,
                             )
                         }
                     }
@@ -140,10 +146,13 @@ fun GridView(
 private fun CellContent(
     cell: Cell,
     isMistake: Boolean,
+    activeDigit: Int?,
     mistakeColor: Color,
     givenColor: Color,
     userColor: Color,
     noteColor: Color,
+    noteHighlightBg: Color,
+    noteHighlightFg: Color,
 ) {
     val value = cell.value
     if (value != null) {
@@ -158,19 +167,35 @@ private fun CellContent(
             },
         )
     } else if (cell.notes.isNotEmpty()) {
-        NotesGrid(notes = cell.notes, color = noteColor)
+        NotesGrid(
+            notes = cell.notes,
+            color = noteColor,
+            activeDigit = activeDigit,
+            highlightBg = noteHighlightBg,
+            highlightFg = noteHighlightFg,
+        )
     }
 }
 
 @Composable
-private fun NotesGrid(notes: Set<Int>, color: Color) {
+private fun NotesGrid(
+    notes: Set<Int>,
+    color: Color,
+    activeDigit: Int?,
+    highlightBg: Color,
+    highlightFg: Color,
+) {
     Column(modifier = Modifier.fillMaxSize()) {
         for (r in 0..2) {
             Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
                 for (c in 0..2) {
                     val n = r * 3 + c + 1
+                    val isHighlighted = activeDigit == n && n in notes
                     Box(
-                        modifier = Modifier.fillMaxSize().weight(1f),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .weight(1f)
+                            .background(if (isHighlighted) highlightBg else Color.Transparent),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (n in notes) {
@@ -178,7 +203,7 @@ private fun NotesGrid(notes: Set<Int>, color: Color) {
                                 text = n.toString(),
                                 fontSize = 11.sp,
                                 lineHeight = 11.sp,
-                                color = color,
+                                color = if (isHighlighted) highlightFg else color,
                                 fontFamily = FontFamily.SansSerif,
                                 style = LocalTextStyle.current.copy(
                                     platformStyle = PlatformTextStyle(includeFontPadding = false),

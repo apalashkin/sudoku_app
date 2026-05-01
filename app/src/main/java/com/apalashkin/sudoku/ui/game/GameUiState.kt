@@ -11,6 +11,7 @@ data class GameUiState(
     val solution: Board,
     val difficulty: Difficulty = Difficulty.EASY,
     val selected: Coord? = null,
+    val selectedDigit: Int? = null,
     val noteMode: Boolean = false,
     val isComplete: Boolean = false,
     val history: List<Board> = emptyList(),
@@ -18,7 +19,22 @@ data class GameUiState(
 
     val canUndo: Boolean get() = history.isNotEmpty()
 
-    fun selectCell(coord: Coord): GameUiState = copy(selected = coord)
+    val activeDigit: Int? get() = selectedDigit ?: selected?.let { puzzle.cell(it).value }
+
+    fun selectCell(coord: Coord): GameUiState {
+        val withCell = copy(selected = coord)
+        return if (selectedDigit != null) withCell.placeDigit(selectedDigit) else withCell
+    }
+
+    fun selectDigit(digit: Int): GameUiState {
+        require(digit in 1..9) { "digit must be 1..9, was $digit" }
+        if (selectedDigit == digit) return copy(selectedDigit = null)
+        return if (selectedDigit == null) {
+            placeDigit(digit).copy(selectedDigit = digit)
+        } else {
+            copy(selectedDigit = digit)
+        }
+    }
 
     fun toggleNoteMode(): GameUiState = copy(noteMode = !noteMode)
 
@@ -64,15 +80,24 @@ data class GameUiState(
         return result
     }
 
-    fun sameDigitCells(): Set<Coord> {
-        val coord = selected ?: return emptySet()
-        val v = puzzle.cell(coord).value ?: return emptySet()
+    fun digitHighlights(): Set<Coord> {
+        val d = selectedDigit ?: selected?.let { puzzle.cell(it).value } ?: return emptySet()
         val result = mutableSetOf<Coord>()
         for (r in 0..8) for (c in 0..8) {
-            val c2 = Coord(r, c)
-            if (puzzle.cell(c2).value == v) result += c2
+            val coord = Coord(r, c)
+            val cell = puzzle.cell(coord)
+            if (cell.value == d || d in cell.notes) result += coord
         }
         return result
+    }
+
+    fun completedDigits(): Set<Int> {
+        val mistakeDigits = mistakes().mapNotNull { puzzle.cell(it).value }.toSet()
+        val counts = IntArray(10)
+        for (r in 0..8) for (c in 0..8) {
+            puzzle.cell(Coord(r, c)).value?.let { counts[it]++ }
+        }
+        return (1..9).filter { it !in mistakeDigits && counts[it] >= 9 }.toSet()
     }
 
     fun undo(): GameUiState {
@@ -86,11 +111,17 @@ data class GameUiState(
 
     private fun commitMutation(updatedPuzzle: Board): GameUiState {
         if (updatedPuzzle == puzzle) return this
-        return copy(
+        val intermediate = copy(
             puzzle = updatedPuzzle,
             history = history + puzzle,
             isComplete = matchesSolution(updatedPuzzle),
         )
+        val locked = intermediate.selectedDigit
+        return if (locked != null && locked in intermediate.completedDigits()) {
+            intermediate.copy(selectedDigit = null)
+        } else {
+            intermediate
+        }
     }
 
     private fun clearDigitFromPeerNotes(board: Board, coord: Coord, digit: Int): Board {

@@ -44,7 +44,7 @@ fun GameScreen(
 
     val peers = remember(current.selected) { current.selected?.peers().orEmpty() }
     val mistakes = remember(current.puzzle) { current.mistakes() }
-    val sameDigit = remember(current.selected, current.puzzle) { current.sameDigitCells() }
+    val completed = remember(current.puzzle) { current.completedDigits() }
 
     Column(
         modifier = modifier
@@ -70,13 +70,15 @@ fun GameScreen(
             board = current.puzzle,
             selected = current.selected,
             peers = peers,
-            sameDigit = sameDigit,
+            activeDigit = current.activeDigit,
             mistakes = mistakes,
             onCellTap = viewModel::selectCell,
         )
         NumberPad(
             noteMode = current.noteMode,
-            onNumberTap = viewModel::placeDigit,
+            selectedDigit = current.selectedDigit,
+            completedDigits = completed,
+            onNumberTap = viewModel::selectDigit,
             onErase = viewModel::erase,
         )
     }
