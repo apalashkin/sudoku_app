@@ -40,6 +40,7 @@ class GameViewModel(
     fun erase() = mutate { it.erase() }
     fun toggleNoteMode() = mutate { it.toggleNoteMode() }
     fun undo() = mutate { it.undo() }
+    fun tick(deltaMs: Long) = mutate { it.tick(deltaMs) }
 
     private fun mutate(transform: (GameUiState) -> GameUiState) {
         val current = _state.value ?: return

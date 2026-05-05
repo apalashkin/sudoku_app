@@ -48,6 +48,14 @@ class GameStateJsonCodecTest {
     }
 
     @Test
+    fun `elapsedMs round-trips`() {
+        val puzzle = PuzzleGenerator(Random(11)).generate(Difficulty.MEDIUM)
+        val state = GameUiState.fromPuzzle(puzzle).tick(123_456L)
+        val decoded = GameStateJsonCodec.decode(GameStateJsonCodec.encode(state))
+        assertEquals(123_456L, decoded.elapsedMs)
+    }
+
+    @Test
     fun `state with notes round-trips`() {
         val board = Board.empty()
             .withCell(Coord(0, 0), Cell.empty().copy(notes = setOf(1, 4, 7)))

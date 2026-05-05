@@ -23,8 +23,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @Composable
 fun GameScreen(
@@ -33,6 +39,15 @@ fun GameScreen(
     viewModel: GameViewModel = viewModel(factory = GameViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (isActive) {
+                delay(1_000)
+                viewModel.tick(1_000)
+            }
+        }
+    }
 
     val current = state
     if (current == null) {
@@ -56,6 +71,7 @@ fun GameScreen(
         Toolbar(
             canUndo = current.canUndo,
             noteMode = current.noteMode,
+            elapsedMs = current.elapsedMs,
             onBack = onNavigateBack,
             onUndo = viewModel::undo,
             onToggleNoteMode = viewModel::toggleNoteMode,
@@ -88,6 +104,7 @@ fun GameScreen(
 private fun Toolbar(
     canUndo: Boolean,
     noteMode: Boolean,
+    elapsedMs: Long,
     onBack: () -> Unit,
     onUndo: () -> Unit,
     onToggleNoteMode: () -> Unit,
@@ -95,6 +112,7 @@ private fun Toolbar(
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack) {
             Icon(
@@ -102,6 +120,10 @@ private fun Toolbar(
                 contentDescription = "Back",
             )
         }
+        Text(
+            text = formatElapsed(elapsedMs),
+            style = MaterialTheme.typography.titleMedium,
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             IconButton(onClick = onUndo, enabled = canUndo) {
                 Icon(
@@ -120,4 +142,11 @@ private fun Toolbar(
             }
         }
     }
+}
+
+private fun formatElapsed(ms: Long): String {
+    val totalSeconds = ms / 1000
+    val mins = totalSeconds / 60
+    val secs = totalSeconds % 60
+    return "%02d:%02d".format(mins, secs)
 }

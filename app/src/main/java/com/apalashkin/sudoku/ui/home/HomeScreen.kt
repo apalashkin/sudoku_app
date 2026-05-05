@@ -24,6 +24,8 @@ import com.apalashkin.sudoku.domain.generator.Difficulty
 @Composable
 fun HomeScreen(
     onNavigateToGame: () -> Unit,
+    onNavigateToStats: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
 ) {
@@ -64,6 +66,20 @@ fun HomeScreen(
             ) {
                 Text("New game · ${difficulty.name.lowercase().replaceFirstChar { it.uppercase() }}")
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedButton(
+            onClick = onNavigateToStats,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Stats")
+        }
+        OutlinedButton(
+            onClick = onNavigateToSettings,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Settings")
         }
     }
 }

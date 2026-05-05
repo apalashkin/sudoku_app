@@ -15,7 +15,14 @@ data class GameUiState(
     val noteMode: Boolean = false,
     val isComplete: Boolean = false,
     val history: List<Board> = emptyList(),
+    val elapsedMs: Long = 0L,
 ) {
+
+    fun tick(deltaMs: Long): GameUiState {
+        if (isComplete) return this
+        return copy(elapsedMs = elapsedMs + deltaMs)
+    }
+
 
     val canUndo: Boolean get() = history.isNotEmpty()
 

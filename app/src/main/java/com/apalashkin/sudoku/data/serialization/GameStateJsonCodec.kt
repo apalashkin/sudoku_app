@@ -26,6 +26,7 @@ object GameStateJsonCodec {
         noteMode = noteMode,
         isComplete = isComplete,
         history = history.map { it.toCellList() },
+        elapsedMs = elapsedMs,
     )
 
     private fun GameStateDto.toModel(): GameUiState = GameUiState(
@@ -36,6 +37,7 @@ object GameStateJsonCodec {
         noteMode = noteMode,
         isComplete = isComplete,
         history = history.map { it.toBoard() },
+        elapsedMs = elapsedMs,
     )
 
     private fun Board.toCellList(): List<CellDto> =
@@ -75,5 +77,6 @@ object GameStateJsonCodec {
         val noteMode: Boolean = false,
         val isComplete: Boolean = false,
         val history: List<List<CellDto>> = emptyList(),
+        val elapsedMs: Long = 0L,
     )
 }

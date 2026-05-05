@@ -183,6 +183,31 @@ class GameUiStateTest {
     }
 
     @Test
+    fun `initial elapsedMs is zero`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        assertEquals(0L, state.elapsedMs)
+    }
+
+    @Test
+    fun `tick increments elapsedMs by the delta`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val after = state.tick(1000L).tick(500L)
+        assertEquals(1500L, after.elapsedMs)
+    }
+
+    @Test
+    fun `tick is a no-op once the game is complete`() {
+        val puzzle = seededPuzzle()
+        val almostSolved = buildAlmostSolvedState(puzzle, leaveEmpty = 1)
+        val coord = firstEmptyCoord(almostSolved.puzzle)
+        val correct = puzzle.solution.cell(coord).value!!
+        val solved = almostSolved.selectCell(coord).placeDigit(correct)
+        assertTrue(solved.isComplete)
+        val after = solved.tick(5000L)
+        assertEquals(solved.elapsedMs, after.elapsedMs)
+    }
+
+    @Test
     fun `selectedDigit is null initially`() {
         val state = GameUiState.fromPuzzle(seededPuzzle())
         assertNull(state.selectedDigit)
