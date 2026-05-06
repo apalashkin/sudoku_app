@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -60,6 +62,7 @@ fun GameScreen(
     val peers = remember(current.selected) { current.selected?.peers().orEmpty() }
     val mistakes = remember(current.puzzle) { current.mistakes() }
     val completed = remember(current.puzzle) { current.completedDigits() }
+    val remaining = remember(current.puzzle) { current.digitsRemaining() }
 
     Column(
         modifier = modifier
@@ -71,10 +74,13 @@ fun GameScreen(
         Toolbar(
             canUndo = current.canUndo,
             noteMode = current.noteMode,
+            pencilMode = current.pencilMode,
             elapsedMs = current.elapsedMs,
             onBack = onNavigateBack,
             onUndo = viewModel::undo,
+            onErase = viewModel::erase,
             onToggleNoteMode = viewModel::toggleNoteMode,
+            onTogglePencilMode = viewModel::togglePencilMode,
         )
         if (current.isComplete) {
             Text(
@@ -94,8 +100,8 @@ fun GameScreen(
             noteMode = current.noteMode,
             selectedDigit = current.selectedDigit,
             completedDigits = completed,
+            digitsRemaining = remaining,
             onNumberTap = viewModel::selectDigit,
-            onErase = viewModel::erase,
         )
     }
 }
@@ -104,10 +110,13 @@ fun GameScreen(
 private fun Toolbar(
     canUndo: Boolean,
     noteMode: Boolean,
+    pencilMode: Boolean,
     elapsedMs: Long,
     onBack: () -> Unit,
     onUndo: () -> Unit,
+    onErase: () -> Unit,
     onToggleNoteMode: () -> Unit,
+    onTogglePencilMode: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -124,12 +133,27 @@ private fun Toolbar(
             text = formatElapsed(elapsedMs),
             style = MaterialTheme.typography.titleMedium,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             IconButton(onClick = onUndo, enabled = canUndo) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Undo,
                     contentDescription = "Undo",
                 )
+            }
+            IconButton(onClick = onErase) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Backspace,
+                    contentDescription = "Erase",
+                )
+            }
+            if (pencilMode) {
+                FilledIconButton(onClick = onTogglePencilMode) {
+                    Icon(imageVector = Icons.Default.PushPin, contentDescription = "Lock digit (on)")
+                }
+            } else {
+                IconButton(onClick = onTogglePencilMode) {
+                    Icon(imageVector = Icons.Default.PushPin, contentDescription = "Lock digit (off)")
+                }
             }
             if (noteMode) {
                 FilledIconButton(onClick = onToggleNoteMode) {

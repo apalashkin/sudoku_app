@@ -39,6 +39,7 @@ class GameViewModel(
     fun selectDigit(digit: Int) = mutate { it.selectDigit(digit) }
     fun erase() = mutate { it.erase() }
     fun toggleNoteMode() = mutate { it.toggleNoteMode() }
+    fun togglePencilMode() = mutate { it.togglePencilMode() }
     fun undo() = mutate { it.undo() }
     fun tick(deltaMs: Long) = mutate { it.tick(deltaMs) }
 

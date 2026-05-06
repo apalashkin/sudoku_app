@@ -214,8 +214,25 @@ class GameUiStateTest {
     }
 
     @Test
-    fun `selectDigit with no cell selected just locks the digit`() {
+    fun `togglePencilMode flips pencilMode`() {
         val state = GameUiState.fromPuzzle(seededPuzzle())
+        assertFalse(state.pencilMode)
+        assertTrue(state.togglePencilMode().pencilMode)
+        assertFalse(state.togglePencilMode().togglePencilMode().pencilMode)
+    }
+
+    @Test
+    fun `togglePencilMode off clears any locked digit`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+            .togglePencilMode().selectDigit(5)
+        assertEquals(5, state.selectedDigit)
+        val after = state.togglePencilMode()
+        assertNull(after.selectedDigit)
+    }
+
+    @Test
+    fun `selectDigit in pencil mode with no cell selected just locks`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle()).togglePencilMode()
         val before = state.puzzle
         val after = state.selectDigit(5)
         assertEquals(5, after.selectedDigit)
@@ -223,24 +240,33 @@ class GameUiStateTest {
     }
 
     @Test
-    fun `selectDigit with same digit toggles off`() {
-        val state = GameUiState.fromPuzzle(seededPuzzle())
-        val after = state.selectDigit(5).selectDigit(5)
-        assertNull(after.selectedDigit)
-    }
-
-    @Test
-    fun `selectDigit with cell selected places and locks`() {
+    fun `selectDigit outside pencil mode places at selected cell without locking`() {
         val state = GameUiState.fromPuzzle(seededPuzzle())
         val empty = firstEmptyCoord(state.puzzle)
         val after = state.selectCell(empty).selectDigit(7)
         assertEquals(7, after.puzzle.cell(empty).value)
+        assertNull(after.selectedDigit)
+    }
+
+    @Test
+    fun `selectDigit in pencil mode with same digit stays locked`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle()).togglePencilMode()
+        val after = state.selectDigit(5).selectDigit(5)
+        assertEquals(5, after.selectedDigit)
+    }
+
+    @Test
+    fun `selectDigit in pencil mode does not place even with cell selected`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle()).togglePencilMode()
+        val empty = firstEmptyCoord(state.puzzle)
+        val after = state.selectCell(empty).selectDigit(7)
+        assertNull(after.puzzle.cell(empty).value)
         assertEquals(7, after.selectedDigit)
     }
 
     @Test
-    fun `selectDigit switching to a different digit only relocks without placing`() {
-        val state = GameUiState.fromPuzzle(seededPuzzle())
+    fun `selectDigit in pencil mode switching only relocks without placing`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle()).togglePencilMode()
         val empty = firstEmptyCoord(state.puzzle)
         val after = state.selectDigit(3).selectCell(empty).selectDigit(8)
         assertEquals(3, after.puzzle.cell(empty).value)
@@ -248,8 +274,8 @@ class GameUiStateTest {
     }
 
     @Test
-    fun `selectCell with locked digit places the digit at the new cell`() {
-        val state = GameUiState.fromPuzzle(seededPuzzle())
+    fun `selectCell in pencil mode with locked digit places at the new cell`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle()).togglePencilMode()
         val empty = firstEmptyCoord(state.puzzle)
         val after = state.selectDigit(4).selectCell(empty)
         assertEquals(4, after.puzzle.cell(empty).value)
@@ -258,24 +284,64 @@ class GameUiStateTest {
     }
 
     @Test
-    fun `selectCell with locked digit and noteMode places a note`() {
+    fun `selectCell in pencil mode with locked digit and noteMode places a note`() {
         val state = GameUiState.fromPuzzle(seededPuzzle())
+            .togglePencilMode().toggleNoteMode()
         val empty = firstEmptyCoord(state.puzzle)
-        val after = state.toggleNoteMode().selectDigit(2).selectCell(empty)
+        val after = state.selectDigit(2).selectCell(empty)
         assertTrue(2 in after.puzzle.cell(empty).notes)
         assertNull(after.puzzle.cell(empty).value)
         assertEquals(2, after.selectedDigit)
     }
 
     @Test
-    fun `selectCell with locked digit on a given cell keeps digit locked and places nothing`() {
-        val state = GameUiState.fromPuzzle(seededPuzzle())
+    fun `selectCell in pencil mode on cell with value locks that value`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle()).togglePencilMode()
         val given = firstGivenCoord(state.puzzle)
-        val originalValue = state.puzzle.cell(given).value
+        val givenValue = state.puzzle.cell(given).value!!
         val after = state.selectDigit(4).selectCell(given)
-        assertEquals(originalValue, after.puzzle.cell(given).value)
-        assertEquals(4, after.selectedDigit)
+        assertEquals(givenValue, after.puzzle.cell(given).value)
+        assertEquals(givenValue, after.selectedDigit)
         assertEquals(given, after.selected)
+    }
+
+    @Test
+    fun `selectCell outside pencil mode just selects regardless of locked digit`() {
+        val state = GameUiState.fromPuzzle(seededPuzzle())
+        val empty = firstEmptyCoord(state.puzzle)
+        val withFakeLock = state.copy(selectedDigit = 4)
+        val after = withFakeLock.selectCell(empty)
+        assertNull(after.puzzle.cell(empty).value)
+        assertEquals(empty, after.selected)
+    }
+
+    @Test
+    fun `digitsRemaining starts at 9 for each digit on a fresh puzzle`() {
+        val state = GameUiState(puzzle = Board.empty(), solution = Board.empty())
+        val remaining = state.digitsRemaining()
+        for (d in 1..9) assertEquals(9, remaining[d])
+    }
+
+    @Test
+    fun `digitsRemaining decreases as digits are placed`() {
+        val board = Board.empty()
+            .withCell(Coord(0, 0), Cell.filled(7))
+            .withCell(Coord(1, 1), Cell.filled(7))
+            .withCell(Coord(2, 2), Cell.filled(3))
+        val state = GameUiState(puzzle = board, solution = Board.empty())
+        val remaining = state.digitsRemaining()
+        assertEquals(7, remaining[7])
+        assertEquals(8, remaining[3])
+        assertEquals(9, remaining[1])
+    }
+
+    @Test
+    fun `digitsRemaining clamps at zero`() {
+        var board = Board.empty()
+        for (col in 0..8) board = board.withCell(Coord(0, col), Cell.filled(5))
+        for (row in 1..1) board = board.withCell(Coord(row, 0), Cell.filled(5))
+        val state = GameUiState(puzzle = board, solution = Board.empty())
+        assertEquals(0, state.digitsRemaining()[5])
     }
 
     @Test
@@ -285,11 +351,9 @@ class GameUiStateTest {
             .withCell(Coord(3, 3), Cell.filled(7))
             .withCell(Coord(1, 1), Cell.filled(5))
         val state = GameUiState(puzzle = board, solution = Board.empty())
-            .selectCell(Coord(1, 1))
-            .selectDigit(7)
-        // 5 was placed at (1,1) by selectDigit since it had a selected cell? No -
-        // selectDigit(7) places 7 at the selected cell (1,1), overwriting 5.
-        // The point: digitHighlights should use selectedDigit (7), not (1,1)'s value.
+            .togglePencilMode()
+            .selectCell(Coord(1, 1))  // locks 5 (cell's value) per pencil-mode rule
+            .selectDigit(7)            // switches lock to 7 without placing
         val highlights = state.digitHighlights()
         assertTrue(Coord(0, 0) in highlights)
         assertTrue(Coord(3, 3) in highlights)
@@ -301,7 +365,8 @@ class GameUiStateTest {
             .withCell(Coord(0, 0), Cell.empty().copy(notes = setOf(3, 7)))
             .withCell(Coord(5, 5), Cell.empty().copy(notes = setOf(7, 9)))
             .withCell(Coord(2, 2), Cell.empty().copy(notes = setOf(2, 4)))
-        val state = GameUiState(puzzle = board, solution = Board.empty()).selectDigit(7)
+        val state = GameUiState(puzzle = board, solution = Board.empty())
+            .togglePencilMode().selectDigit(7)
         val highlights = state.digitHighlights()
         assertTrue(Coord(0, 0) in highlights)
         assertTrue(Coord(5, 5) in highlights)
@@ -309,7 +374,7 @@ class GameUiStateTest {
     }
 
     @Test
-    fun `placing the 9th of a locked digit auto-unlocks the digit`() {
+    fun `placing the 9th of a locked digit in pencil mode jumps to the next non-complete digit`() {
         var board = Board.empty()
         val placements = listOf(
             Coord(0, 0), Coord(1, 3), Coord(2, 6),
@@ -318,10 +383,31 @@ class GameUiStateTest {
         )
         for (coord in placements) board = board.withCell(coord, Cell.filled(7))
         val state = GameUiState(puzzle = board, solution = Board.empty())
-            .selectDigit(7)
+            .togglePencilMode().selectDigit(7)
         val ninth = Coord(8, 8)
         val after = state.selectCell(ninth)
         assertEquals(7, after.puzzle.cell(ninth).value)
+        assertEquals(8, after.selectedDigit)
+    }
+
+    @Test
+    fun `completing the last remaining digit clears the lock`() {
+        val grid = arrayOf(
+            intArrayOf(5, 3, 4, 6, 7, 8, 9, 1, 2),
+            intArrayOf(6, 7, 2, 1, 9, 5, 3, 4, 8),
+            intArrayOf(1, 9, 8, 3, 4, 2, 5, 6, 7),
+            intArrayOf(8, 5, 9, 7, 6, 1, 4, 2, 3),
+            intArrayOf(4, 2, 6, 8, 5, 3, 7, 9, 1),
+            intArrayOf(7, 1, 3, 9, 2, 4, 8, 5, 6),
+            intArrayOf(9, 6, 1, 5, 3, 7, 2, 8, 4),
+            intArrayOf(2, 8, 7, 4, 1, 9, 6, 3, 5),
+            intArrayOf(3, 4, 5, 2, 8, 6, 1, 7, 0),
+        )
+        val state = GameUiState(puzzle = Board.fromGrid(grid), solution = Board.empty())
+            .togglePencilMode().selectDigit(9)
+        val finalCoord = Coord(8, 8)
+        val after = state.selectCell(finalCoord)
+        assertEquals(9, after.puzzle.cell(finalCoord).value)
         assertNull(after.selectedDigit)
     }
 

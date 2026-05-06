@@ -13,37 +13,41 @@ data class GameUiState(
     val selected: Coord? = null,
     val selectedDigit: Int? = null,
     val noteMode: Boolean = false,
+    val pencilMode: Boolean = false,
     val isComplete: Boolean = false,
     val history: List<Board> = emptyList(),
     val elapsedMs: Long = 0L,
 ) {
+
+    val canUndo: Boolean get() = history.isNotEmpty()
+
+    val activeDigit: Int? get() = selectedDigit ?: selected?.let { puzzle.cell(it).value }
 
     fun tick(deltaMs: Long): GameUiState {
         if (isComplete) return this
         return copy(elapsedMs = elapsedMs + deltaMs)
     }
 
-
-    val canUndo: Boolean get() = history.isNotEmpty()
-
-    val activeDigit: Int? get() = selectedDigit ?: selected?.let { puzzle.cell(it).value }
-
     fun selectCell(coord: Coord): GameUiState {
+        if (!pencilMode) return copy(selected = coord)
+        val cell = puzzle.cell(coord)
+        if (cell.value != null) return copy(selected = coord, selectedDigit = cell.value)
         val withCell = copy(selected = coord)
         return if (selectedDigit != null) withCell.placeDigit(selectedDigit) else withCell
     }
 
     fun selectDigit(digit: Int): GameUiState {
         require(digit in 1..9) { "digit must be 1..9, was $digit" }
-        if (selectedDigit == digit) return copy(selectedDigit = null)
-        return if (selectedDigit == null) {
-            placeDigit(digit).copy(selectedDigit = digit)
-        } else {
-            copy(selectedDigit = digit)
-        }
+        if (!pencilMode) return placeDigit(digit)
+        if (selectedDigit == digit) return this
+        return copy(selectedDigit = digit)
     }
 
     fun toggleNoteMode(): GameUiState = copy(noteMode = !noteMode)
+
+    fun togglePencilMode(): GameUiState =
+        if (pencilMode) copy(pencilMode = false, selectedDigit = null)
+        else copy(pencilMode = true)
 
     fun placeDigit(digit: Int): GameUiState {
         require(digit in 1..9) { "digit must be 1..9, was $digit" }
@@ -100,11 +104,13 @@ data class GameUiState(
 
     fun completedDigits(): Set<Int> {
         val mistakeDigits = mistakes().mapNotNull { puzzle.cell(it).value }.toSet()
-        val counts = IntArray(10)
-        for (r in 0..8) for (c in 0..8) {
-            puzzle.cell(Coord(r, c)).value?.let { counts[it]++ }
-        }
+        val counts = digitCounts()
         return (1..9).filter { it !in mistakeDigits && counts[it] >= 9 }.toSet()
+    }
+
+    fun digitsRemaining(): Map<Int, Int> {
+        val counts = digitCounts()
+        return (1..9).associateWith { (9 - counts[it]).coerceAtLeast(0) }
     }
 
     fun undo(): GameUiState {
@@ -116,6 +122,14 @@ data class GameUiState(
         )
     }
 
+    private fun digitCounts(): IntArray {
+        val counts = IntArray(10)
+        for (r in 0..8) for (c in 0..8) {
+            puzzle.cell(Coord(r, c)).value?.let { counts[it]++ }
+        }
+        return counts
+    }
+
     private fun commitMutation(updatedPuzzle: Board): GameUiState {
         if (updatedPuzzle == puzzle) return this
         val intermediate = copy(
@@ -123,12 +137,13 @@ data class GameUiState(
             history = history + puzzle,
             isComplete = matchesSolution(updatedPuzzle),
         )
-        val locked = intermediate.selectedDigit
-        return if (locked != null && locked in intermediate.completedDigits()) {
-            intermediate.copy(selectedDigit = null)
-        } else {
-            intermediate
-        }
+        val locked = intermediate.selectedDigit ?: return intermediate
+        val completed = intermediate.completedDigits()
+        if (locked !in completed) return intermediate
+
+        if (!intermediate.pencilMode) return intermediate.copy(selectedDigit = null)
+        val next = (((locked + 1)..9) + (1 until locked)).firstOrNull { it !in completed }
+        return intermediate.copy(selectedDigit = next)
     }
 
     private fun clearDigitFromPeerNotes(board: Board, coord: Coord, digit: Int): Board {

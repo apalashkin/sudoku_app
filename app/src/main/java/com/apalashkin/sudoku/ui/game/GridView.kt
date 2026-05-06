@@ -49,8 +49,8 @@ fun GridView(
     val givenColor = MaterialTheme.colorScheme.onSurface
     val userColor = MaterialTheme.colorScheme.primary
     val noteColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val noteHighlightBg = Color(0xFF1A237E)
-    val noteHighlightFg = Color.White
+    val noteHighlightBg = MaterialTheme.colorScheme.primaryContainer
+    val noteHighlightFg = MaterialTheme.colorScheme.onPrimaryContainer
 
     Column(
         modifier = modifier
