@@ -1,7 +1,7 @@
 # Sudoku Android App — Plan
 
-**Current stage:** Phase 6 complete. Next: Phase 7 — polish + release.
-**Last updated:** 2026-05-05
+**Current stage:** Phase 7 complete. v1 done.
+**Last updated:** 2026-05-06
 
 ## Scope (v1)
 
@@ -42,7 +42,7 @@ di/       Hilt modules
 - [x] **Phase 4 — Notes, undo, highlighting** (2d): notes mode toggle, auto-remove notes setting, snapshot-based undo stack, peer-conflict detection, row/col/box + same-digit highlight.
 - [x] **Phase 5 — Persistence + resume** (1d): Room DB (`games`, `settings` tables), debounced save on state change, "Resume" entry on home screen.
 - [x] **Phase 6 — Timer, stats, settings** (1-2d): `Flow<Duration>` timer paused via Lifecycle, stats screen (completed games + best times), settings screen, Material 3 theming.
-- [ ] **Phase 7 — Polish + release** (1-2d): adaptive icon, Android 12 splash, R8 rules, signed release APK, optional Play Console internal track.
+- [x] **Phase 7 — Polish + release** (1-2d): adaptive icon, Android 12 splash, R8 rules, signed release APK, optional Play Console internal track.
 
 **Total: ~10-14 focused days.**
 
