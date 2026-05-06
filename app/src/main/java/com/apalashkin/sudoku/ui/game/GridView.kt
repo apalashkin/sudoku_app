@@ -42,15 +42,17 @@ fun GridView(
 ) {
     val thinColor = MaterialTheme.colorScheme.outlineVariant
     val thickColor = MaterialTheme.colorScheme.onSurface
-    val selectedBg = MaterialTheme.colorScheme.primaryContainer
-    val sameDigitBg = MaterialTheme.colorScheme.secondaryContainer
-    val peerBg = MaterialTheme.colorScheme.surfaceVariant
-    val mistakeColor = MaterialTheme.colorScheme.error
-    val givenColor = MaterialTheme.colorScheme.onSurface
-    val userColor = MaterialTheme.colorScheme.primary
+    val selectedBg = Color(0xFFEEEEEE)
+    val peerBg = selectedBg
+    val sameDigitBg = MaterialTheme.colorScheme.primary
+    val sameDigitFg = MaterialTheme.colorScheme.onPrimary
+    val mistakeBg = Color(0xFFFFCDD2)
+    val mistakeColor = Color(0xFFB71C1C)
+    val givenColor = Color(0xFF212121)
+    val userColor = Color(0xFF1565C0)
     val noteColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val noteHighlightBg = MaterialTheme.colorScheme.primaryContainer
-    val noteHighlightFg = MaterialTheme.colorScheme.onPrimaryContainer
+    val noteHighlightBg = sameDigitBg
+    val noteHighlightFg = sameDigitFg
 
     Column(
         modifier = modifier
@@ -66,13 +68,13 @@ fun GridView(
                     val cell = board.cell(coord)
                     val isSelected = selected == coord
                     val isMistake = coord in mistakes
-                    val isSameDigit = !isSelected &&
-                        activeDigit != null && cell.value == activeDigit
-                    val isPeer = !isSelected && !isSameDigit && coord in peers
+                    val isSameDigit = activeDigit != null && cell.value == activeDigit
+                    val isPeer = !isSameDigit && coord in peers
 
                     val bg = when {
-                        isSelected -> selectedBg
+                        isMistake -> mistakeBg
                         isSameDigit -> sameDigitBg
+                        isSelected -> selectedBg
                         isPeer -> peerBg
                         else -> Color.Transparent
                     }
@@ -126,8 +128,10 @@ fun GridView(
                             CellContent(
                                 cell = cell,
                                 isMistake = isMistake,
+                                isSameDigit = isSameDigit,
                                 activeDigit = activeDigit,
                                 mistakeColor = mistakeColor,
+                                sameDigitFg = sameDigitFg,
                                 givenColor = givenColor,
                                 userColor = userColor,
                                 noteColor = noteColor,
@@ -146,8 +150,10 @@ fun GridView(
 private fun CellContent(
     cell: Cell,
     isMistake: Boolean,
+    isSameDigit: Boolean,
     activeDigit: Int?,
     mistakeColor: Color,
+    sameDigitFg: Color,
     givenColor: Color,
     userColor: Color,
     noteColor: Color,
@@ -159,9 +165,10 @@ private fun CellContent(
         Text(
             text = value.toString(),
             fontSize = 20.sp,
-            fontWeight = if (cell.isGiven) FontWeight.Bold else FontWeight.Normal,
+            fontWeight = FontWeight.Bold,
             color = when {
                 isMistake -> mistakeColor
+                isSameDigit -> sameDigitFg
                 cell.isGiven -> givenColor
                 else -> userColor
             },
