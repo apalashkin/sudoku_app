@@ -76,16 +76,23 @@ fun GameScreen(
             noteMode = current.noteMode,
             pencilMode = current.pencilMode,
             elapsedMs = current.elapsedMs,
+            mistakeCount = current.mistakeCount,
+            maxMistakes = current.maxMistakes,
             onBack = onNavigateBack,
             onUndo = viewModel::undo,
             onErase = viewModel::erase,
             onToggleNoteMode = viewModel::toggleNoteMode,
             onTogglePencilMode = viewModel::togglePencilMode,
         )
-        if (current.isComplete) {
-            Text(
+        when {
+            current.isComplete -> Text(
                 text = "🎉 Solved!",
                 style = MaterialTheme.typography.titleLarge,
+            )
+            current.isFailed -> Text(
+                text = "❌ Out of mistakes",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.error,
             )
         }
         GridView(
@@ -112,6 +119,8 @@ private fun Toolbar(
     noteMode: Boolean,
     pencilMode: Boolean,
     elapsedMs: Long,
+    mistakeCount: Int,
+    maxMistakes: Int,
     onBack: () -> Unit,
     onUndo: () -> Unit,
     onErase: () -> Unit,
@@ -129,10 +138,18 @@ private fun Toolbar(
                 contentDescription = "Back",
             )
         }
-        Text(
-            text = formatElapsed(elapsedMs),
-            style = MaterialTheme.typography.titleMedium,
-        )
+        Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+            Text(
+                text = formatElapsed(elapsedMs),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = formatMistakes(mistakeCount, maxMistakes),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (mistakeCount > 0) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             IconButton(onClick = onUndo, enabled = canUndo) {
                 Icon(
@@ -174,3 +191,6 @@ private fun formatElapsed(ms: Long): String {
     val secs = totalSeconds % 60
     return "%02d:%02d".format(mins, secs)
 }
+
+private fun formatMistakes(count: Int, max: Int): String =
+    if (max == Int.MAX_VALUE) "mistakes $count" else "mistakes $count/$max"

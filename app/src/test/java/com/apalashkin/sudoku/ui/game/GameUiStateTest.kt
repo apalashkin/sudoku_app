@@ -143,36 +143,85 @@ class GameUiStateTest {
     }
 
     @Test
-    fun `mistakes flags both cells of a row conflict`() {
-        val board = Board.empty()
-            .withCell(Coord(0, 0), Cell.filled(5))
-            .withCell(Coord(0, 5), Cell.filled(5))
-        val state = GameUiState(puzzle = board, solution = Board.empty())
+    fun `mistakes flags cells diverging from the solution`() {
+        val solGrid = Array(9) { IntArray(9) }
+        solGrid[0][0] = 3
+        solGrid[0][5] = 7
+        val state = GameUiState(
+            puzzle = Board.empty()
+                .withCell(Coord(0, 0), Cell.filled(5))
+                .withCell(Coord(0, 5), Cell.filled(5)),
+            solution = Board.fromGrid(solGrid),
+        )
         val m = state.mistakes()
         assertTrue(Coord(0, 0) in m)
         assertTrue(Coord(0, 5) in m)
     }
 
     @Test
-    fun `mistakes flags column conflicts`() {
-        val board = Board.empty()
-            .withCell(Coord(0, 3), Cell.filled(7))
-            .withCell(Coord(5, 3), Cell.filled(7))
-        val state = GameUiState(puzzle = board, solution = Board.empty())
-        val m = state.mistakes()
-        assertTrue(Coord(0, 3) in m)
-        assertTrue(Coord(5, 3) in m)
+    fun `mistakes does not flag cells matching the solution`() {
+        val solGrid = Array(9) { IntArray(9) }
+        solGrid[0][0] = 5
+        val state = GameUiState(
+            puzzle = Board.empty().withCell(Coord(0, 0), Cell.filled(5)),
+            solution = Board.fromGrid(solGrid),
+        )
+        assertTrue(state.mistakes().isEmpty())
     }
 
     @Test
-    fun `mistakes flags 3x3 box conflicts`() {
-        val board = Board.empty()
-            .withCell(Coord(0, 0), Cell.filled(2))
-            .withCell(Coord(2, 2), Cell.filled(2))
-        val state = GameUiState(puzzle = board, solution = Board.empty())
-        val m = state.mistakes()
-        assertTrue(Coord(0, 0) in m)
-        assertTrue(Coord(2, 2) in m)
+    fun `placing a wrong digit increments mistakeCount`() {
+        val solGrid = Array(9) { IntArray(9) }
+        solGrid[0][0] = 3
+        val state = GameUiState(
+            puzzle = Board.empty(),
+            solution = Board.fromGrid(solGrid),
+        ).selectCell(Coord(0, 0))
+        val after = state.placeDigit(5)
+        assertEquals(1, after.mistakeCount)
+    }
+
+    @Test
+    fun `placing a correct digit does not increment mistakeCount`() {
+        val solGrid = Array(9) { IntArray(9) }
+        solGrid[0][0] = 3
+        val state = GameUiState(
+            puzzle = Board.empty(),
+            solution = Board.fromGrid(solGrid),
+        ).selectCell(Coord(0, 0))
+        val after = state.placeDigit(3)
+        assertEquals(0, after.mistakeCount)
+    }
+
+    @Test
+    fun `isFailed becomes true at maxMistakes`() {
+        val solGrid = Array(9) { IntArray(9) }
+        solGrid[0][0] = 3
+        var state = GameUiState(
+            puzzle = Board.empty(),
+            solution = Board.fromGrid(solGrid),
+            maxMistakes = 2,
+        ).selectCell(Coord(0, 0))
+        state = state.placeDigit(5)
+        assertFalse(state.isFailed)
+        state = state.placeDigit(7)
+        assertTrue(state.isFailed)
+    }
+
+    @Test
+    fun `placeDigit is a no-op when isFailed`() {
+        val solGrid = Array(9) { IntArray(9) }
+        solGrid[0][0] = 3
+        solGrid[0][1] = 4
+        var state = GameUiState(
+            puzzle = Board.empty(),
+            solution = Board.fromGrid(solGrid),
+            maxMistakes = 1,
+        ).selectCell(Coord(0, 0)).placeDigit(5)
+        assertTrue(state.isFailed)
+        val before = state.puzzle
+        state = state.selectCell(Coord(0, 1)).placeDigit(4)
+        assertEquals(before, state.puzzle)
     }
 
     @Test

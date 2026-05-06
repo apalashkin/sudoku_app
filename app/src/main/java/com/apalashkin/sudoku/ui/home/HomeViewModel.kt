@@ -10,16 +10,19 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import com.apalashkin.sudoku.data.db.AppDatabase
 import com.apalashkin.sudoku.data.repository.ActiveGame
 import com.apalashkin.sudoku.data.repository.GameRepository
+import com.apalashkin.sudoku.data.repository.SettingsRepository
 import com.apalashkin.sudoku.domain.generator.Difficulty
 import com.apalashkin.sudoku.domain.generator.PuzzleGenerator
 import com.apalashkin.sudoku.ui.game.GameUiState
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class HomeViewModel(
     private val repository: GameRepository,
+    private val settings: SettingsRepository,
     private val generator: PuzzleGenerator = PuzzleGenerator(),
 ) : ViewModel() {
 
@@ -29,7 +32,8 @@ class HomeViewModel(
     fun startNewGame(difficulty: Difficulty, onReady: () -> Unit) {
         viewModelScope.launch {
             val puzzle = generator.generate(difficulty)
-            val state = GameUiState.fromPuzzle(puzzle)
+            val maxMistakes = settings.observe().first().maxMistakes
+            val state = GameUiState.fromPuzzle(puzzle).copy(maxMistakes = maxMistakes)
             repository.startNewGame(state)
             onReady()
         }
@@ -40,7 +44,10 @@ class HomeViewModel(
             initializer {
                 val app = this[APPLICATION_KEY] as Application
                 val db = AppDatabase.get(app)
-                HomeViewModel(GameRepository(db.gameDao()))
+                HomeViewModel(
+                    repository = GameRepository(db.gameDao()),
+                    settings = SettingsRepository(db.settingsDao()),
+                )
             }
         }
     }

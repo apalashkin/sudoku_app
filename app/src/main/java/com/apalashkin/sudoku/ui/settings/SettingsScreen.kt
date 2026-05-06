@@ -66,6 +66,19 @@ fun SettingsScreen(
                 onSelect = { viewModel.setThemeMode(mode) },
             )
         }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Max mistakes per game",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        listOf(3 to "3", 5 to "5", Int.MAX_VALUE to "Unlimited").forEach { (value, label) ->
+            ThemeOption(
+                label = label,
+                selected = settings.maxMistakes == value,
+                onSelect = { viewModel.setMaxMistakes(value) },
+            )
+        }
     }
 }
 

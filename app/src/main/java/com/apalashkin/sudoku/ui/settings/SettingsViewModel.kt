@@ -25,6 +25,10 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         viewModelScope.launch { repository.setThemeMode(mode) }
     }
 
+    fun setMaxMistakes(value: Int) {
+        viewModelScope.launch { repository.setMaxMistakes(value) }
+    }
+
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {

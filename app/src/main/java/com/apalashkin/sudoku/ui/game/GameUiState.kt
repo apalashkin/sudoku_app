@@ -17,18 +17,25 @@ data class GameUiState(
     val isComplete: Boolean = false,
     val history: List<Board> = emptyList(),
     val elapsedMs: Long = 0L,
+    val mistakeCount: Int = 0,
+    val maxMistakes: Int = 3,
 ) {
 
     val canUndo: Boolean get() = history.isNotEmpty()
 
     val activeDigit: Int? get() = selectedDigit ?: selected?.let { puzzle.cell(it).value }
 
+    val isFailed: Boolean get() = mistakeCount >= maxMistakes
+
+    val isOver: Boolean get() = isComplete || isFailed
+
     fun tick(deltaMs: Long): GameUiState {
-        if (isComplete) return this
+        if (isOver) return this
         return copy(elapsedMs = elapsedMs + deltaMs)
     }
 
     fun selectCell(coord: Coord): GameUiState {
+        if (isOver) return this
         if (!pencilMode) return copy(selected = coord)
         val cell = puzzle.cell(coord)
         if (cell.value != null) return copy(selected = coord, selectedDigit = cell.value)
@@ -38,6 +45,7 @@ data class GameUiState(
 
     fun selectDigit(digit: Int): GameUiState {
         require(digit in 1..9) { "digit must be 1..9, was $digit" }
+        if (isOver) return this
         if (!pencilMode) return placeDigit(digit)
         if (selectedDigit == digit) return this
         return copy(selectedDigit = digit)
@@ -51,32 +59,46 @@ data class GameUiState(
 
     fun placeDigit(digit: Int): GameUiState {
         require(digit in 1..9) { "digit must be 1..9, was $digit" }
-        if (isComplete) return this
+        if (isOver) return this
         val coord = selected ?: return this
         val cell = puzzle.cell(coord)
         if (cell.isGiven) return this
 
+        var newMistakeCount = mistakeCount
         val updatedPuzzle = if (noteMode) {
             if (cell.value != null) return this
             val updatedNotes = if (digit in cell.notes) cell.notes - digit else cell.notes + digit
             puzzle.withCell(coord, cell.copy(notes = updatedNotes))
         } else {
+            val expected = solution.cell(coord).value
+            if (expected != null && digit != expected) newMistakeCount = mistakeCount + 1
             val placed = puzzle.withCell(coord, Cell.filled(digit))
             clearDigitFromPeerNotes(placed, coord, digit)
         }
-        return commitMutation(updatedPuzzle)
+        return commitMutation(updatedPuzzle, newMistakeCount)
     }
 
     fun erase(): GameUiState {
-        if (isComplete) return this
+        if (isOver) return this
         val coord = selected ?: return this
         val cell = puzzle.cell(coord)
         if (cell.isGiven) return this
         val updatedPuzzle = puzzle.withCell(coord, Cell.empty())
-        return commitMutation(updatedPuzzle)
+        return commitMutation(updatedPuzzle, mistakeCount)
     }
 
     fun mistakes(): Set<Coord> {
+        val result = mutableSetOf<Coord>()
+        for (r in 0..8) for (c in 0..8) {
+            val coord = Coord(r, c)
+            val v = puzzle.cell(coord).value ?: continue
+            val expected = solution.cell(coord).value ?: continue
+            if (v != expected) result += coord
+        }
+        return result
+    }
+
+    private fun peerConflicts(): Set<Coord> {
         val result = mutableSetOf<Coord>()
         for (r in 0..8) for (c in 0..8) {
             val coord = Coord(r, c)
@@ -103,9 +125,9 @@ data class GameUiState(
     }
 
     fun completedDigits(): Set<Int> {
-        val mistakeDigits = mistakes().mapNotNull { puzzle.cell(it).value }.toSet()
+        val conflictDigits = peerConflicts().mapNotNull { puzzle.cell(it).value }.toSet()
         val counts = digitCounts()
-        return (1..9).filter { it !in mistakeDigits && counts[it] >= 9 }.toSet()
+        return (1..9).filter { it !in conflictDigits && counts[it] >= 9 }.toSet()
     }
 
     fun digitsRemaining(): Map<Int, Int> {
@@ -130,12 +152,13 @@ data class GameUiState(
         return counts
     }
 
-    private fun commitMutation(updatedPuzzle: Board): GameUiState {
-        if (updatedPuzzle == puzzle) return this
+    private fun commitMutation(updatedPuzzle: Board, newMistakeCount: Int): GameUiState {
+        if (updatedPuzzle == puzzle && newMistakeCount == mistakeCount) return this
         val intermediate = copy(
             puzzle = updatedPuzzle,
-            history = history + puzzle,
+            history = if (updatedPuzzle == puzzle) history else history + puzzle,
             isComplete = matchesSolution(updatedPuzzle),
+            mistakeCount = newMistakeCount,
         )
         val locked = intermediate.selectedDigit ?: return intermediate
         val completed = intermediate.completedDigits()
