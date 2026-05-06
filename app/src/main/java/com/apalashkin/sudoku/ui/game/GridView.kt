@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -40,16 +41,17 @@ fun GridView(
     onCellTap: (Coord) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val thinColor = MaterialTheme.colorScheme.outlineVariant
     val thickColor = MaterialTheme.colorScheme.onSurface
-    val selectedBg = Color(0xFFEEEEEE)
+    val selectedBg = if (isDark) Color(0xFF595959) else Color(0xFFEEEEEE)
     val peerBg = selectedBg
     val sameDigitBg = MaterialTheme.colorScheme.primary
     val sameDigitFg = MaterialTheme.colorScheme.onPrimary
-    val mistakeBg = Color(0xFFFFCDD2)
-    val mistakeColor = Color(0xFFB71C1C)
-    val givenColor = Color(0xFF212121)
-    val userColor = Color(0xFF1565C0)
+    val mistakeBg = if (isDark) Color(0xFF5D1010) else Color(0xFFFFCDD2)
+    val mistakeColor = if (isDark) Color(0xFFFFCDD2) else Color(0xFFB71C1C)
+    val givenColor = if (isDark) Color(0xFFEEEEEE) else Color(0xFF212121)
+    val userColor = if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0)
     val noteColor = MaterialTheme.colorScheme.onSurfaceVariant
     val noteHighlightBg = sameDigitBg
     val noteHighlightFg = sameDigitFg
